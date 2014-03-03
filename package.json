@@ -1,6 +1,6 @@
 {
   "name": "teamcity.js",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "TeamCity client for nodejs and browser.",
   "license": "MIT",
   "main": "teamcity.js",
