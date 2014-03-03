@@ -39,3 +39,9 @@ describe 'with teamcity client', ->
 
 	it 'check required options', ->
 		(-> teamcity()).should.throw('Options are not specified.')
+		(-> teamcity({url: ''})).should.throw("Required 'endpoint' option is not specified.")
+		(-> teamcity({url: 123})).should.throw("Required 'endpoint' option is not specified.")
+		(-> teamcity({url: 'abc', user: ''})).should.throw("Required 'user' option is not specified.")
+		(-> teamcity({url: 'abc', user: 123})).should.throw("Required 'user' option is not specified.")
+		(-> teamcity({url: 'abc', user: 'abc', password: ''})).should.throw("Required 'password' option is not specified.")
+		(-> teamcity({url: 'abc', user: 'abc', password: 123})).should.throw("Required 'password' option is not specified.")

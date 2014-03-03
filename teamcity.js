@@ -1,3 +1,4 @@
+// http://confluence.jetbrains.com/display/TCD8/REST+API
 (function(){
 
 	// detect environment
@@ -8,52 +9,94 @@
 		env = 'meteor';
 	}
 
-	// dependencies
-	var request, defer, promise, extend;
+	var request;
 
-	// TODO getJson
+	function node_request(request, Q){
+		return function(url, options){
+			// TODO accept fake request for tests
+			var d = Q.defer();
+			request(url, options, function(err, res, body){
+				if (err) {
+					d.reject(err);
+				} else {
+					d.resolve(body);
+				}
+			});
+		};
+	}
 
 	switch (env){
-		case 'node': {
-			request = require('request');
-			var Q = require('q');
-			extend = require('underscore').extend;
-			defer = Q.defer;
-			promise = Q;
-		}
+		case 'node':
+			request = node_request(require('request'), require('q'));
 		break;
-		case 'meteor': {
-			request = Npm.require('request');
-			var q = Npm.require('q');
-			extend = Npm.require('underscore').extend;
-			defer = q.defer;
-			promise = q;
-		}
+		case 'meteor':
+			request = node_request(Npm.require('request'), Npm.require('q'));
 		break;
-		default: {
-			extend = $.extend;
-			defer = $.Deferred;
-			promise = function(value){
-				return $.Deferred().resolve(value).promise();
-			};
-			// TODO ensure that body is string not document object
-			request = function(url, callback){
-				$.get(url).done(function(body, status, xhr){
-					callback(null, xhr.response, body);
-				}).fail(function(err){
-					callback(err, null, null);
+		default:
+			request = function(url, options){
+				// TODO accept fake request for tests
+				var auth = options.auth;
+				return $.ajax({
+					type: 'GET',
+					url: url,
+					dataType: 'json',
+					username: auth.user,
+					password: auth.pass
 				});
 			};
-		}
 		break;
 	}
 
 	function teamcity(options){
+		// check required options
 		if (typeof options != 'object'){
 			throw new Error('Options are not specified.');
 		}
-		// TODO check required options
-		// TODO implement it
+
+		var endpoint = options.url || options.endpoint;
+		if (!endpoint || typeof endpoint != 'string'){
+			throw new Error("Required 'endpoint' option is not specified.");
+		}
+
+		var user = options.user;
+		var password = options.password || options.pwd;
+		if (!user || typeof user != 'string') {
+			throw new Error("Required 'user' option is not specified.");
+		}
+		if (!password || typeof password != 'string') {
+			throw new Error("Required 'password' option is not specified.");
+		}
+
+		var auth = {
+			user: user,
+			pass: password
+		};
+
+		var get = function(url){
+			return request(endpoint + url, {auth: auth});
+		};
+
+		var vcs_roots = function(locator){
+			// TODO support locator
+			// TODO convert into objects with additional API
+			return get('vcs-roots');
+		};
+
+		// api
+		return {
+			projects: function(locator){
+				// TODO support locator
+				// TODO convert into objects with additional API
+				return get('projects');
+			},
+			configs: function(locator){
+				// TODO support locator
+				// TODO convert into objects with additional API
+				return get('buildTypes');
+			},
+			vcs_roots: vcs_roots,
+			'vcs-roots': vcs_roots
+		};
 	}
 
 	// expose public api for different environments
