@@ -9,7 +9,7 @@
 		env = 'meteor';
 	}
 
-	var request;
+	var request, extend;
 
 	function node_request(request, Q){
 		return function(url, options){
@@ -28,11 +28,14 @@
 	switch (env){
 		case 'node':
 			request = node_request(require('request'), require('q'));
+			extend = require('underscore').extend;
 		break;
 		case 'meteor':
 			request = node_request(Npm.require('request'), Npm.require('q'));
+			extend = Npm.require('underscore').extend;
 		break;
 		default:
+			extend = $.extend;
 			request = function(url, options){
 				// TODO accept fake request for tests
 				var auth = options.auth;
@@ -57,6 +60,9 @@
 		if (!endpoint || typeof endpoint != 'string'){
 			throw new Error("Required 'endpoint' option is not specified.");
 		}
+		if (endpoint.charAt(endpoint.length - 1) != '/'){
+			endpoint += '/';
+		}
 
 		var user = options.user;
 		var password = options.password || options.pwd;
@@ -72,28 +78,51 @@
 			pass: password
 		};
 
-		var get = function(url){
-			return request(endpoint + url, {auth: auth});
+		var build_url = function(baseUrl, prefix, locator){
+			var url = baseUrl + prefix;
+			if (locator){
+				url += Object.keys(locator).map(function(key){
+					var val = locator[key];
+					return key + ':' + val;
+				}).join(',');
+			}
+			return url;
 		};
 
-		var vcs_roots = function(locator){
-			// TODO support locator
-			// TODO convert into objects with additional API
-			return get('vcs-roots');
+		var get = function(baseUrl, prefix, locator){
+			var url = build_url(baseUrl, prefix, locator);
+			return request(baseUrl + url, {auth: auth});
 		};
 
 		// api
+		var build_types = function(baseUrl){
+			return function(locator){
+				// TODO convert into objects with additional API
+				return get(baseUrl, 'buildTypes', locator);
+			};
+		};
+
+		var vcs_roots = function(locator){
+			// TODO convert into objects with additional API
+			return get(endpoint, 'vcs-roots', locator);
+		};
+
 		return {
 			projects: function(locator){
-				// TODO support locator
 				// TODO convert into objects with additional API
-				return get('projects');
+				return get(endpoint, 'projects', locator).then(function(projects){
+					return projects.map(function(p){
+						// TODO fix base url
+						var baseUrl = p.url;
+						return extend(p, {
+							configs: build_types(baseUrl),
+							build_types: build_types(baseUrl)
+						});
+					});
+				});
 			},
-			configs: function(locator){
-				// TODO support locator
-				// TODO convert into objects with additional API
-				return get('buildTypes');
-			},
+			configs: build_types(endpoint),
+			build_types: build_types(endpoint),
 			vcs_roots: vcs_roots,
 			'vcs-roots': vcs_roots
 		};
