@@ -231,7 +231,8 @@
 						pin: function(){
 							// TODO primitive values should be retrieved as text/plain
 							return get(href, 'pin');
-						}
+						},
+						status_icon: build_url(href, 'statusIcon')
 					});
 				});
 			});
