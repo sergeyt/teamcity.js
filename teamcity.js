@@ -2,43 +2,55 @@
 (function(){
 
 	// detect environment
+	var require_impl;
 	var env = 'browser';
 	if (typeof module !== 'undefined') {
 		env = 'node';
+		require_impl = require;
 	} else if (typeof Meteor !== 'undefined' && Meteor.isServer) {
 		env = 'meteor';
+		require_impl = Npm.require;
 	}
 
-	var request, extend;
+	var request, extend, defer;
 
-	function node_request(request, Q){
+	function node_request(request){
 		return function(url, options){
-			// TODO accept fake request for tests
-			var d = Q.defer();
-			request(url, options, function(err, res, body){
+			// accept fake request for tests
+			var req = options.request || request;
+			var d = defer();
+			req(url, options, function(err, res, body){
 				if (err) {
 					d.reject(err);
 				} else {
+					console.log(body);
+					if (typeof body == 'string') {
+						body = JSON.parse(body);
+					}
 					d.resolve(body);
 				}
 			});
+			return d.promise;
 		};
 	}
 
 	switch (env){
 		case 'node':
-			request = node_request(require('request'), require('q'));
-			extend = require('underscore').extend;
-		break;
 		case 'meteor':
-			request = node_request(Npm.require('request'), Npm.require('q'));
-			extend = Npm.require('underscore').extend;
+			defer = require_impl('q').defer;
+			extend = require_impl('underscore').extend;
+			request = node_request(require_impl('request'), require_impl('q'));
 		break;
 		default:
+			defer = $.Deferred;
 			extend = $.extend;
 			request = function(url, options){
-				// TODO accept fake request for tests
+				// accept fake request for tests
+				if (options.request){
+					return node_request(options.request)(url, options);
+				}
 				var auth = options.auth;
+				// TODO pass 'accept: application/json' header
 				return $.ajax({
 					type: 'GET',
 					url: url,
@@ -48,6 +60,10 @@
 				});
 			};
 		break;
+	}
+
+	function is_absolute_uri(uri){
+		return (/^https?:\/\//i).test(uri);
 	}
 
 	function teamcity(options){
@@ -60,11 +76,17 @@
 		if (!endpoint || typeof endpoint != 'string'){
 			throw new Error("Required 'endpoint' option is not specified.");
 		}
+
+		// auto-fix endpoint
+		var app_rest = 'httpAuth/app/rest';
+		if (endpoint.indexOf(app_rest) >= 0) {
+			endpoint = endpoint.replace(app_rest, '');
+		}
 		if (endpoint.charAt(endpoint.length - 1) != '/'){
 			endpoint += '/';
 		}
 
-		var user = options.user;
+		var user = options.user || options.username;
 		var password = options.password || options.pwd;
 		if (!user || typeof user != 'string') {
 			throw new Error("Required 'user' option is not specified.");
@@ -73,13 +95,26 @@
 			throw new Error("Required 'password' option is not specified.");
 		}
 
-		var auth = {
-			user: user,
-			pass: password
+		var req_opts = {
+			auth: {
+				user: user,
+				pass: password
+			},
+			headers: {
+				accept: 'application/json'
+			}
 		};
 
-		var build_url = function(baseUrl, prefix, locator){
-			var url = baseUrl + prefix;
+		function build_url(baseUrl, entity, locator){
+			if (!baseUrl) {
+				baseUrl = endpoint + app_rest;
+			} else if (!is_absolute_uri(baseUrl)) {
+				baseUrl = endpoint + baseUrl;
+			}
+			if (baseUrl.charAt(baseUrl.length - 1) != '/'){
+				baseUrl += '/';
+			}
+			var url = baseUrl + entity;
 			if (locator){
 				url += Object.keys(locator).map(function(key){
 					var val = locator[key];
@@ -87,44 +122,117 @@
 				}).join(',');
 			}
 			return url;
-		};
+		}
 
-		var get = function(baseUrl, prefix, locator){
-			var url = build_url(baseUrl, prefix, locator);
-			return request(baseUrl + url, {auth: auth});
-		};
+		function get(baseUrl, entity, locator){
+			var url = build_url(baseUrl, entity, locator);
+			console.log(url);
+			return request(url, req_opts);
+		}
 
 		// api
-		var build_types = function(baseUrl){
+		function projectsFn(baseUrl){
 			return function(locator){
-				// TODO convert into objects with additional API
-				return get(baseUrl, 'buildTypes', locator);
-			};
-		};
-
-		var vcs_roots = function(locator){
-			// TODO convert into objects with additional API
-			return get(endpoint, 'vcs-roots', locator);
-		};
-
-		return {
-			projects: function(locator){
-				// TODO convert into objects with additional API
-				return get(endpoint, 'projects', locator).then(function(projects){
-					return projects.map(function(p){
-						// TODO fix base url
-						var baseUrl = p.url;
+				return get(baseUrl, 'projects', locator).then(function(d){
+					var list = d.project || [];
+					return list.map(function(p){
+						var href = p.href;
 						return extend(p, {
-							configs: build_types(baseUrl),
-							build_types: build_types(baseUrl)
+							// configs: configsFn(href),
+							projects: projectsFn(href),
+							parameters: function(){
+								return get(href, 'parameters');
+							},
+							templates: function(){
+								return get(href, 'templates');
+							},
+							description: function(){
+								return get(href, 'description');
+							},
+							archived: function(){
+								return get(href, 'archived');
+							}
 						});
 					});
 				});
-			},
-			configs: build_types(endpoint),
-			build_types: build_types(endpoint),
+			};
+		}
+
+		function configsFn(baseUrl){
+			return function(locator){
+				// TODO convert into objects with additional API
+				return get(baseUrl, 'buildTypes', locator).then(function(d){
+					var list = d.buildType || [];
+					return list.map(function(b){
+						var href = b.href;
+						return extend(b, {
+							paused: function(){
+								return get(href, 'paused');
+							},
+							settings: function(){
+								return get(href, 'settings');
+							},
+							parameters: function(){
+								return get(href, 'parameters');
+							},
+							steps: function(){
+								return get(href, 'steps');
+							},
+							features: function(){
+								return get(href, 'features');
+							},
+							triggers: function(){
+								return get(href, 'triggers');
+							},
+							agent_requirements: function(){
+								return get(href, 'agent-requirements');
+							},
+							artifact_dependencies: function(){
+								return get(href, 'artifact-dependencies');
+							},
+							snapshot_dependencies: function(){
+								return get(href, 'snapshot-dependencies');
+							},
+							vcs_roots: function(){
+								return get(href, 'vcs-root-entries');
+							},
+							artifacts: {
+								content: function(name){
+									return get(href, 'artifacts/content/' + name);
+								},
+								metadata: function(name){
+									return get(href, 'artifacts/metadata/' + name);
+								},
+								children: function(name){
+									// TODO support nested requests
+									return get(href, 'artifacts/children/' + name);
+								}
+							}
+						});
+					});
+				});
+			};
+		}
+
+		var vcs_roots = function(locator){
+			// TODO convert into objects with additional API
+			return get('', 'vcs-roots', locator);
+		};
+
+		return {
+			projects: projectsFn(''),
+			configs: configsFn(''),
 			vcs_roots: vcs_roots,
-			'vcs-roots': vcs_roots
+			builds: function(locator){
+				// TODO extend build objects with tags, etc methods
+				return get('', 'builds', locator);
+			},
+			changes: function(locator){
+				return get('', 'changes', locator);
+			},
+			build_queue: function(locator){
+				return get('', 'buildQueue', locator);
+			}
 		};
 	}
 

@@ -5,7 +5,7 @@ _ = require 'underscore'
 # creates fake request
 fakeRequest = ->
 	responses = []
-	req = (url, cb) ->
+	req = (url, opts, cb) ->
 		r = _.find responses, (x) ->
 			return x[0](url) if typeof x[0] is 'function'
 			return x[0].test(url)
