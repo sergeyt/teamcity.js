@@ -30,10 +30,10 @@
 					d.resolve(body);
 				}
 			});
-			return d.promise;
+			return typeof d.promise == 'function' ? d.promise() : d.promise;
 		};
 	}
-
+	
 	switch (env){
 		case 'node':
 		case 'meteor':
