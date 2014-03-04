@@ -33,7 +33,7 @@
 			return typeof d.promise == 'function' ? d.promise() : d.promise;
 		};
 	}
-	
+
 	switch (env){
 		case 'node':
 		case 'meteor':
@@ -135,9 +135,9 @@
 			return function(locator){
 				return get(baseUrl, 'projects', locator).then(function(d){
 					var list = d.project || [];
-					return list.map(function(p){
-						var href = p.href;
-						return extend(p, {
+					return list.map(function(prj){
+						var href = prj.href;
+						return extend(prj, {
 							// configs: configsFn(href),
 							projects: projectsFn(href),
 							parameters: function(){
@@ -163,9 +163,9 @@
 				// TODO convert into objects with additional API
 				return get(baseUrl, 'buildTypes', locator).then(function(d){
 					var list = d.buildType || [];
-					return list.map(function(b){
-						var href = b.href;
-						return extend(b, {
+					return list.map(function(cfg){
+						var href = cfg.href;
+						return extend(cfg, {
 							paused: function(){
 								return get(href, 'paused');
 							},
@@ -219,19 +219,37 @@
 			return get('', 'vcs-roots', locator);
 		};
 
+		function builds(locator){
+			return get('', 'builds', locator).then(function(d){
+				var list = d.build || [];
+				return list.map(function(build){
+					var href = build.href;
+					return extend(build, {
+						tags: function(){
+							return get(href, 'tags');
+						},
+						pin: function(){
+							// TODO primitive values should be retrieved as text/plain
+							return get(href, 'pin');
+						}
+					});
+				});
+			});
+		}
+
 		return {
 			projects: projectsFn(''),
 			configs: configsFn(''),
 			vcs_roots: vcs_roots,
-			builds: function(locator){
-				// TODO extend build objects with tags, etc methods
-				return get('', 'builds', locator);
-			},
+			builds: builds,
 			changes: function(locator){
 				return get('', 'changes', locator);
 			},
 			build_queue: function(locator){
 				return get('', 'buildQueue', locator);
+			},
+			features: function(){
+				return get('', 'application.wadl');
 			}
 		};
 	}
