@@ -13,6 +13,7 @@
 	}
 
 	var request, extend, defer;
+	var debug = function(x){};
 
 	function node_request(request){
 		return function(url, options){
@@ -21,9 +22,9 @@
 			var d = defer();
 			req(url, options, function(err, res, body){
 				if (err) {
+					debug('GET ' + url + ' failed with: ' + err);
 					d.reject(err);
 				} else {
-					console.log(body);
 					if (typeof body == 'string') {
 						body = JSON.parse(body);
 					}
@@ -37,11 +38,15 @@
 	switch (env){
 		case 'node':
 		case 'meteor':
+			debug = require_impl('debug')('teamcity.js');
 			defer = require_impl('q').defer;
 			extend = require_impl('underscore').extend;
 			request = node_request(require_impl('request'), require_impl('q'));
 		break;
 		default:
+			if (typeof window.debug != 'undefined') {
+				debug = window.debug('teamcity.js');
+			}
 			defer = $.Deferred;
 			extend = $.extend;
 			request = function(url, options){
@@ -62,9 +67,44 @@
 		break;
 	}
 
+	// utils
 	function is_absolute_uri(uri){
 		return (/^https?:\/\//i).test(uri);
 	}
+
+	// entity schemas
+	var project_schema = {
+		parameters: 'parameters',
+		templates: 'templates',
+		description: 'description', // TODO plain value
+		archived: 'archived' // TODO plain value
+	};
+
+	var config_schema = {
+		paused: 'paused', // TODO how to specify plain value
+		settings: 'settings',
+		parameters: 'parameters',
+		steps: 'steps',
+		features: 'features',
+		triggers: 'triggers',
+		agent_requirements: 'agent-requirements',
+		artifact_dependencies: 'artifact-dependencies',
+		snapshot_dependencies: 'snapshot-dependencies',
+		vcs_roots: 'vcs-root-entries',
+		artifacts: {
+			content: 'artifacts/content/{0}',
+			metadata: 'artifacts/metadata/{0}',
+			children: 'artifacts/children/{0}'
+		}
+	};
+
+	var build_schema = {
+		tags: 'tags',
+		pin: 'pin',
+		status_icon: function(ctx){
+			return ctx.build_url(ctx.href, 'statusIcon');
+		}
+	};
 
 	function teamcity(options){
 		// check required options
@@ -126,123 +166,97 @@
 
 		function get(baseUrl, entity, locator){
 			var url = build_url(baseUrl, entity, locator);
-			console.log(url);
+			debug('GET ' + url);
 			return request(url, req_opts);
 		}
 
+		function entityFn(href, entity){
+			return function(){
+				var args = [].slice.call(arguments);
+				var path = entity.replace(/\{(\d+)\}/g, function(m, i){
+					var index = (+i);
+					return typeof args[index] != 'undefined' ? args[index] : '';
+				});
+				return get(href, path);
+			};
+		}
+
+		function map_schema(href, schema){
+			// context for functional properties
+			var ctx = {
+				get: get,
+				build_url: build_url,
+				href: href
+			};
+			var result = {};
+			Object.keys(schema).forEach(function(key){
+				// TODO support plain values
+				var val = schema[key];
+				if (typeof val == 'string') {
+					result[key] = entityFn(href, val);
+				} else if (typeof val == 'function') {
+					result[key] = val(ctx);
+				} else if (typeof val == 'object') {
+					// nested schema
+					result[key] = map_schema(href, val);
+				}
+			});
+			return result;
+		}
+
 		// api
+		function extend_project(prj){
+			var href = prj.href;
+			var extra = {
+				// configs: configsFn(href),
+				projects: projectsFn(href)
+			};
+			var api = map_schema(href, project_schema);
+			return extend(prj, extra, api);
+		}
+
 		function projectsFn(baseUrl){
 			return function(locator){
 				return get(baseUrl, 'projects', locator).then(function(d){
 					var list = d.project || [];
-					return list.map(function(prj){
-						var href = prj.href;
-						return extend(prj, {
-							// configs: configsFn(href),
-							projects: projectsFn(href),
-							parameters: function(){
-								return get(href, 'parameters');
-							},
-							templates: function(){
-								return get(href, 'templates');
-							},
-							description: function(){
-								return get(href, 'description');
-							},
-							archived: function(){
-								return get(href, 'archived');
-							}
-						});
-					});
+					return list.map(extend_project);
 				});
 			};
+		}
+
+		function extend_config(cfg){
+			var api = map_schema(cfg.href, config_schema);
+			return extend(cfg, api);
 		}
 
 		function configsFn(baseUrl){
 			return function(locator){
-				// TODO convert into objects with additional API
 				return get(baseUrl, 'buildTypes', locator).then(function(d){
 					var list = d.buildType || [];
-					return list.map(function(cfg){
-						var href = cfg.href;
-						return extend(cfg, {
-							paused: function(){
-								return get(href, 'paused');
-							},
-							settings: function(){
-								return get(href, 'settings');
-							},
-							parameters: function(){
-								return get(href, 'parameters');
-							},
-							steps: function(){
-								return get(href, 'steps');
-							},
-							features: function(){
-								return get(href, 'features');
-							},
-							triggers: function(){
-								return get(href, 'triggers');
-							},
-							agent_requirements: function(){
-								return get(href, 'agent-requirements');
-							},
-							artifact_dependencies: function(){
-								return get(href, 'artifact-dependencies');
-							},
-							snapshot_dependencies: function(){
-								return get(href, 'snapshot-dependencies');
-							},
-							vcs_roots: function(){
-								return get(href, 'vcs-root-entries');
-							},
-							artifacts: {
-								content: function(name){
-									return get(href, 'artifacts/content/' + name);
-								},
-								metadata: function(name){
-									return get(href, 'artifacts/metadata/' + name);
-								},
-								children: function(name){
-									// TODO support nested requests
-									return get(href, 'artifacts/children/' + name);
-								}
-							}
-						});
-					});
+					return list.map(extend_config);
 				});
 			};
 		}
 
-		var vcs_roots = function(locator){
-			// TODO convert into objects with additional API
-			return get('', 'vcs-roots', locator);
-		};
-
-		function builds(locator){
-			return get('', 'builds', locator).then(function(d){
-				var list = d.build || [];
-				return list.map(function(build){
-					var href = build.href;
-					return extend(build, {
-						tags: function(){
-							return get(href, 'tags');
-						},
-						pin: function(){
-							// TODO primitive values should be retrieved as text/plain
-							return get(href, 'pin');
-						},
-						status_icon: build_url(href, 'statusIcon')
-					});
-				});
-			});
+		function extend_build(build){
+			var href = build.href;
+			var extra = map_schema(href, build_schema);
+			return extend(build, extra);
 		}
 
 		return {
 			projects: projectsFn(''),
 			configs: configsFn(''),
-			vcs_roots: vcs_roots,
-			builds: builds,
+			vcs_roots: function(locator){
+				// TODO convert into objects with additional API
+				return get('', 'vcs-roots', locator);
+			},
+			builds: function(locator){
+				return get('', 'builds', locator).then(function(d){
+					var list = d.build || [];
+					return list.map(extend_build);
+				});
+			},
 			changes: function(locator){
 				return get('', 'changes', locator);
 			},
