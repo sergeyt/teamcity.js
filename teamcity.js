@@ -72,12 +72,20 @@
 		return (/^https?:\/\//i).test(uri);
 	}
 
+	function format(s, args){
+		return s.replace(/\{(\d+)\}/g, function(m, i){
+			var index = (+i);
+			return typeof args[index] != 'undefined' ? args[index] : '';
+		});
+	}
+
 	// entity schemas
 	var project_schema = {
 		parameters: 'parameters',
 		templates: 'templates',
 		description: 'description', // TODO plain value
 		archived: 'archived' // TODO plain value
+		// TODO agent pools
 	};
 
 	var config_schema = {
@@ -103,8 +111,20 @@
 		pin: 'pin',
 		status_icon: function(ctx){
 			return ctx.build_url(ctx.href, 'statusIcon');
+		},
+		// TODO add other build's bean attributes if needed
+		branch: 'branchName',
+		statistics: 'statistics',
+		// TODO implement url template approach, something like 'buildTypes/id:{buildTypeId}'
+		config: function(ctx){
+			return function(){
+				var url = format('buildTypes/id:{0}', [ctx.entity.buildTypeId]);
+				return ctx.get('', url);
+			};
 		}
 	};
+
+	// TODO create declarative schema for whole teamcity API
 
 	function teamcity(options){
 		// check required options
@@ -173,17 +193,16 @@
 		function entityFn(href, entity){
 			return function(){
 				var args = [].slice.call(arguments);
-				var path = entity.replace(/\{(\d+)\}/g, function(m, i){
-					var index = (+i);
-					return typeof args[index] != 'undefined' ? args[index] : '';
-				});
+				var path = format(entity, args);
 				return get(href, path);
 			};
 		}
 
-		function map_schema(href, schema){
+		function map_schema(entity, schema){
 			// context for functional properties
+			var href = entity.href;
 			var ctx = {
+				entity: entity,
 				get: get,
 				build_url: build_url,
 				href: href
@@ -211,7 +230,8 @@
 				// configs: configsFn(href),
 				projects: projectsFn(href)
 			};
-			var api = map_schema(href, project_schema);
+
+			var api = map_schema(prj, project_schema);
 			return extend(prj, extra, api);
 		}
 
@@ -225,7 +245,7 @@
 		}
 
 		function extend_config(cfg){
-			var api = map_schema(cfg.href, config_schema);
+			var api = map_schema(cfg, config_schema);
 			return extend(cfg, api);
 		}
 
@@ -239,12 +259,12 @@
 		}
 
 		function extend_build(build){
-			var href = build.href;
-			var extra = map_schema(href, build_schema);
+			var extra = map_schema(build, build_schema);
 			return extend(build, extra);
 		}
 
 		return {
+			// TODO try to create schema
 			projects: projectsFn(''),
 			configs: configsFn(''),
 			vcs_roots: function(locator){
@@ -263,8 +283,17 @@
 			build_queue: function(locator){
 				return get('', 'buildQueue', locator);
 			},
-			features: function(){
-				return get('', 'application.wadl');
+			tests: function(locator){
+				return get('', 'testOccurrences?locator=', locator);
+			},
+			investigations: function(locator){
+				return get('', 'investigations?locator=', locator);
+			},
+			agents: function(locator){
+				return get('', 'agents', locator);
+			},
+			users: function(locator){
+				return get('', 'users', locator);
 			}
 		};
 	}
