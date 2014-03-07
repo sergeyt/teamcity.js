@@ -79,6 +79,30 @@
 		});
 	}
 
+	// locator submodule
+	var Locator = function(){
+		function stringify(locator){
+			if (!locator) {
+				return '';
+			}
+			if (typeof locator == 'string') {
+				return locator;
+			}
+			if (typeof locator == 'object') {
+				return Object.keys(locator).map(function(key){
+					// support nesting
+					var val = stringify(locator[key]);
+					return val ? key + ':' + val : '';
+				}).filter(function(s){ return s.length > 0; })
+				.join(',');
+			}
+			return '';
+		}
+		return {
+			stringify: stringify
+		};
+	}();
+
 	// entity schemas
 	var project_schema = {
 		parameters: 'parameters',
@@ -174,14 +198,7 @@
 			if (baseUrl.charAt(baseUrl.length - 1) != '/'){
 				baseUrl += '/';
 			}
-			var url = baseUrl + entity;
-			if (locator){
-				url += Object.keys(locator).map(function(key){
-					var val = locator[key];
-					return key + ':' + val;
-				}).join(',');
-			}
-			return url;
+			return baseUrl + entity + Locator.stringify(locator);
 		}
 
 		function get(baseUrl, entity, locator){
