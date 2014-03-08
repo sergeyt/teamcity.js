@@ -8,4 +8,4 @@
 
 [![NPM](https://nodei.co/npm/teamcity.js.png?downloads=true&stars=true)](https://nodei.co/npm/teamcity.js/)
 
-TeamCity client for nodejs and browser
+TeamCity client runnable in nodejs and browser environments.
