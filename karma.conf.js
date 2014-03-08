@@ -7,7 +7,7 @@ module.exports = function(config) {
 		frameworks: ['mocha'],
 
 		preprocessors: {
-			'fogbugz.js': 'coverage',
+			'teamcity.js': 'coverage',
 			'test/*.coffee': 'coffee'
 		},
 
