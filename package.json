@@ -1,7 +1,7 @@
 {
   "name": "teamcity.js",
   "version": "0.0.2",
-  "description": "TeamCity client for nodejs and browser.",
+  "description": "TeamCity client runnable in nodejs and browser environments.",
   "license": "MIT",
   "main": "teamcity.js",
   "repository": {
