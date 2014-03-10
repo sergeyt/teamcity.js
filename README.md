@@ -5,6 +5,7 @@
 
 [![NPM version](https://badge.fury.io/js/teamcity.js.png)](http://badge.fury.io/js/teamcity.js)
 [![Deps Status](https://david-dm.org/sergeyt/teamcity.js.png)](https://david-dm.org/sergeyt/teamcity.js)
+[![DevDeps Status](https://david-dm.org/sergeyt/teamcity.js/dev-status.png)](https://david-dm.org/sergeyt/teamcity.js#info=devDependencies)
 
 [![NPM](https://nodei.co/npm/teamcity.js.png?downloads=true&stars=true)](https://nodei.co/npm/teamcity.js/)
 
