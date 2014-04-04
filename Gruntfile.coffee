@@ -51,11 +51,6 @@ module.exports = (grunt) ->
 				configFile: 'karma.conf.lcov.js',
 				singleRun: true
 
-		coveralls:
-			options:
-				debug: true,
-				coverage_dir: '.coverage'
-
 	grunt.loadNpmTasks 'grunt-contrib-jshint'
 	grunt.loadNpmTasks 'grunt-coffeelint'
 	grunt.loadNpmTasks 'grunt-npm'
@@ -63,7 +58,6 @@ module.exports = (grunt) ->
 	grunt.loadNpmTasks 'grunt-auto-release'
 	grunt.loadNpmTasks 'grunt-simple-mocha'
 	grunt.loadNpmTasks 'grunt-karma'
-	grunt.loadNpmTasks 'grunt-karma-coveralls'
 
 	grunt.registerTask 'release', 'Bump the version and publish to NPM.',
 		(type) -> grunt.task.run [
@@ -75,4 +69,3 @@ module.exports = (grunt) ->
 	grunt.registerTask 'lint', ['coffeelint', 'jshint']
 	grunt.registerTask 'test', ['lint', 'simplemocha', 'karma:dev']
 	grunt.registerTask 'default', ['test']
-	grunt.registerTask 'drone', ['lint', 'simplemocha', 'karma:lcov', 'coveralls']
