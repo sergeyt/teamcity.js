@@ -34,7 +34,7 @@
     "grunt-cli": "~0.1",
     "grunt-simple-mocha": "~0.4.0",
     "karma": "~0.12",
-    "karma-coverage": "~0.1",
+    "karma-coverage": "~0.2",
     "karma-script-launcher": "~0.1",
     "karma-chrome-launcher": "~0.1",
     "karma-firefox-launcher": "~0.1",
@@ -43,7 +43,7 @@
     "karma-phantomjs-launcher": "~0.1",
     "karma-mocha": "~0.1",
     "mocha": "~1.18",
-    "should": "~3.2"
+    "should": "~3.3"
   },
   "scripts": {
     "lint": "grunt lint",
