@@ -17,7 +17,7 @@
     "Sergey Todyshev <stodyshev@gmail.com>"
   ],
   "dependencies": {
-    "request": "~2.34",
+    "request": "~2.36",
     "q": "~1.0",
     "underscore": "~1.6",
     "async": "~0.2",
@@ -42,8 +42,8 @@
     "karma-coffee-preprocessor": "~0.2",
     "karma-phantomjs-launcher": "~0.1",
     "karma-mocha": "~0.1",
-    "mocha": "~1.18",
-    "should": "~3.3"
+    "mocha": "~1.20",
+    "should": "~4.0"
   },
   "scripts": {
     "lint": "grunt lint",
