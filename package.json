@@ -17,7 +17,7 @@
     "Sergey Todyshev <stodyshev@gmail.com>"
   ],
   "dependencies": {
-    "request": "~2.36",
+    "request": "~2.39",
     "q": "~1.0",
     "underscore": "~1.6",
     "async": "~0.2",
@@ -28,7 +28,7 @@
     "grunt-contrib-jshint": "~0.10",
     "grunt-coffeelint": "~0.0.10",
     "grunt-npm": "~0.0.2",
-    "grunt-bump": "~0.0.14",
+    "grunt-bump": "~0.0.15",
     "grunt-auto-release": "~0.0.6",
     "grunt-karma": "~0.8",
     "grunt-cli": "~0.1",
@@ -42,7 +42,7 @@
     "karma-coffee-preprocessor": "~0.2",
     "karma-phantomjs-launcher": "~0.1",
     "karma-mocha": "~0.1",
-    "mocha": "~1.20",
+    "mocha": "~1.21",
     "should": "~4.0"
   },
   "scripts": {
