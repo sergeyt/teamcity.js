@@ -20,7 +20,7 @@
     "request": "~2.40",
     "q": "~1.0",
     "underscore": "~1.6",
-    "async": "~0.2",
+    "async": "~0.9",
     "debug": "~1.0"
   },
   "devDependencies": {
